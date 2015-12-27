@@ -33,20 +33,6 @@ QString create_segmented(QString file)
   return res;
 }
 
-QString create_isophotes(QString file)
-{
-  QString res = file + ".iso.png";
-  QProcess::execute("gmic", QStringList() << file
-                    //<< "-isophotes" << QString("%1").arg(n_colors.toInt()*2)
-                    //<< "-threshold" << "1"
-                    //<< "-negative"
-                    << "-edges" << "1"
-                    << "-replace" << "1,255"
-    << "-o" << res
-  );
-  return res;
-}
-
 QString create_result(QString isophotes, QString labeled)
 {
   QString res = labeled + ".res.png";
@@ -91,7 +77,7 @@ int neighbour(QImage img, int p, int x, int y)
   return p + x + w*y;
 }
 
-std::vector<int> find_component(QImage img, int start)
+std::vector<int> find_component(QImage img, int start, std::vector<int> * const brd)
 {
   std::vector<int> res, queue(1, start);
   QRgb bc = color(img, start);
@@ -101,13 +87,22 @@ std::vector<int> find_component(QImage img, int start)
     int pos = queue.back();
     queue.pop_back();
     res.push_back(pos);
+    bool on_brd = false;
     for (size_t i = 0; i < 4; ++i)
     {
       int n = neighbour(img, pos, i < 2 ? i*2 - 1 : 0, i >= 2 ? (i - 2)*2 - 1 : 0);
-      if (n == -1 || visited[n] || color(img, n) != bc) continue;
-      visited[n] = true;
-      queue.push_back(n);
+      if (n != -1 && color(img, n) == bc)
+      {
+        if (!visited[n])
+        {
+          visited[n] = true;
+          queue.push_back(n);
+        }
+        continue;
+      }
+      on_brd = true;
     }
+    if (on_brd && brd != NULL) brd->push_back(pos);
   }
   return res;
 }
@@ -196,7 +191,7 @@ QString create_labels(QString segmented, QString distances)
   while (start != -1)
   {
     //std::cout << "extracting comp..." << std::endl;
-    std::vector<int> comp = find_component(simg, start);
+    std::vector<int> comp = find_component(simg, start, NULL);
     //std::cout << comp.size() << " pixels" << std::endl;
     //std::cout << "searching label pos..." << std::endl;
     int p = find_label_pos(dimg, comp);
@@ -208,6 +203,31 @@ QString create_labels(QString segmented, QString distances)
   painter.end();
   QString res = distances + ".num.png";
   mimg.save(res, "PNG");
+  return res;
+}
+
+QString create_isophotes(QString file)
+{
+  QImage simg(file);
+  QImage iimg(simg.size(), QImage::Format_RGB888);
+  int w = simg.width();
+  int h = simg.height();
+  visited.assign(w*h, false);
+  QPainter painter;
+  painter.begin(&iimg);
+  painter.fillRect(0, 0, w, h, QColor::fromRgb(255, 255, 255));
+  int start = 0;
+  while (start != -1)
+  {
+    std::vector<int> brd;
+    find_component(simg, start, &brd);
+    for (size_t i = 0; i < brd.size(); ++i)
+      iimg.setPixel(brd[i]%w, brd[i]/w, 0);
+    start = find_start_idx(start);
+  }
+  painter.end();
+  QString res = file + ".iso.png";
+  iimg.save(res, "PNG");
   return res;
 }
 
