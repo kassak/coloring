@@ -10,10 +10,13 @@
 #include <stdexcept>
 #include <sstream>
 #include <vector>
+#include <set>
 
 QString smooth = "1";
 QString edge_threshold = "15";
 QString n_colors = "32";
+int area_threshold = 0;
+int importance_threshold = 0xFFFFFF;
 QString resize;
 int pal_idx = 1;
 QMap<QRgb, int> palette;
@@ -77,7 +80,7 @@ int neighbour(QImage img, int p, int x, int y)
   return p + x + w*y;
 }
 
-std::vector<int> find_component(QImage img, int start, std::vector<int> * const brd)
+std::vector<int> find_component(QImage img, int start, std::vector<int> * const brd, std::set<int> * const obrd)
 {
   std::vector<int> res, queue(1, start);
   QRgb bc = color(img, start);
@@ -100,6 +103,7 @@ std::vector<int> find_component(QImage img, int start, std::vector<int> * const 
         }
         continue;
       }
+      if (obrd != NULL && n != -1) obrd->insert(n);
       on_brd = true;
     }
     if (on_brd && brd != NULL) brd->push_back(pos);
@@ -191,7 +195,7 @@ QString create_labels(QString segmented, QString distances)
   while (start != -1)
   {
     //std::cout << "extracting comp..." << std::endl;
-    std::vector<int> comp = find_component(simg, start, NULL);
+    std::vector<int> comp = find_component(simg, start, NULL, NULL);
     //std::cout << comp.size() << " pixels" << std::endl;
     //std::cout << "searching label pos..." << std::endl;
     int p = find_label_pos(dimg, comp);
@@ -220,7 +224,7 @@ QString create_isophotes(QString file)
   while (start != -1)
   {
     std::vector<int> brd;
-    find_component(simg, start, &brd);
+    find_component(simg, start, &brd, NULL);
     for (size_t i = 0; i < brd.size(); ++i)
       iimg.setPixel(brd[i]%w, brd[i]/w, 0);
     start = find_start_idx(start);
@@ -231,14 +235,76 @@ QString create_isophotes(QString file)
   return res;
 }
 
+void ycbcr(QRgb c, int & y, int &cb, int &cr)
+{
+  QColor cc(c);
+  y = 0.299*cc.red() + 0.587*cc.green() + 0.114*cc.blue();
+  cb = 128 - 0.168736*cc.red() - 0.331264*cc.green() + 0.5*cc.blue();
+  cr = 128 + 0.5*cc.red() - 0.418688*cc.green() - 0.081312*cc.blue();
+}
+
+int distance(QRgb a, QRgb b)
+{
+  int ah, as, av, bh, bs, bv;
+  ycbcr(a, ah, as, av);
+  ycbcr(b, bh, bs, bv);
+  return 2*std::abs(ah - bh) + std::abs(as - bs) + std::abs(av - bv);
+}
+
+QString remove_small_segments(QString file)
+{
+  QImage bimg(file);
+  QImage simg = bimg.copy();
+  int w = simg.width();
+  int h = simg.height();
+  visited.assign(w*h, false);
+  int start = 0;
+  while (start != -1)
+  {
+    std::set<int> obrd;
+    std::vector<int> comp = find_component(bimg, start, NULL, &obrd);
+    if (comp.size() < area_threshold)
+    {
+      QRgb sc = color(bimg, start);
+      std::set<QRgb> colors;
+      for (std::set<int>::const_iterator it = obrd.begin(); it != obrd.end(); ++it)
+        colors.insert(color(bimg, *it));
+      int d = importance_threshold;
+      QRgb c = -1;
+      for (std::set<QRgb>::const_iterator it = colors.begin(); it != colors.end(); ++it)
+      {
+        int dd = distance(sc, *it);
+        if (dd < d)
+        {
+          d = dd;
+          c = *it;
+        }
+      }
+      if (c != -1)
+        for (size_t i = 0; i < comp.size(); ++i)
+          simg.setPixel(comp[i]%w, comp[i]/w, c);
+    }
+    start = find_start_idx(start);
+  }
+  QString res = file + ".del.png";
+  simg.save(res, "PNG");
+  return res;
+}
+
 int main(int argc, char ** argv)
 {
   QApplication app(argc, argv);
   int op = -1;
-  while (-1 != (op = getopt(argc, argv, "s:e:r:c:")))
+  while (-1 != (op = getopt(argc, argv, "s:e:r:c:a:i:")))
   {
      switch(op)
      {
+     case 'a':
+       area_threshold = QString(optarg).toInt();
+       break;
+     case 'i':
+       importance_threshold = QString(optarg).toInt();
+       break;
      case 's':
        smooth = optarg;
        break;
@@ -254,7 +320,8 @@ int main(int argc, char ** argv)
      }
   }
 
-  QString segmented = create_segmented(argv[optind]);
+  QString bad_segmented = create_segmented(argv[optind]);
+  QString segmented = remove_small_segments(bad_segmented);
   QString isophotes = create_isophotes(segmented);
   QString distances = create_distance(isophotes);
   QString labeled = create_labels(segmented, distances);
