@@ -15,6 +15,7 @@
 QString smooth = "1";
 QString edge_threshold = "15";
 QString n_colors = "32";
+QString kuwahara_rad = "5";
 int area_threshold = 0;
 int importance_threshold = 0xFFFFFF;
 QString resize;
@@ -29,6 +30,7 @@ QString create_segmented(QString file)
   params << file;
   if (!resize.isNull()) params << "-resize" << resize;
   QProcess::execute("gmic", params
+    << "-kuwahara" << kuwahara_rad
     << "-gimp_segment_watershed" << (edge_threshold + "," + smooth + ",0")
     << "-autoindex" << (n_colors + ",0,0")
     << "-o" << res
@@ -169,7 +171,8 @@ void mark(QImage const & img, int p, QPainter & painter)
     palette[c] = pal_idx++;
   else
     m = *it;
-  painter.drawText(x, y, QString("%1").arg(m));
+  painter.drawText(x - 10, y - 5, 20, 10, Qt::AlignHCenter | Qt::AlignVCenter, QString("%1").arg(m));
+  //painter.drawRect(x -5,y - 5, 10, 10);
 }
 
 QString create_labels(QString segmented, QString distances)
@@ -295,7 +298,7 @@ int main(int argc, char ** argv)
 {
   QApplication app(argc, argv);
   int op = -1;
-  while (-1 != (op = getopt(argc, argv, "s:e:r:c:a:i:")))
+  while (-1 != (op = getopt(argc, argv, "s:e:r:c:a:i:k:")))
   {
      switch(op)
      {
@@ -307,6 +310,9 @@ int main(int argc, char ** argv)
        break;
      case 's':
        smooth = optarg;
+       break;
+     case 'k':
+       kuwahara_rad = optarg;
        break;
      case 'e':
        edge_threshold = optarg;
