@@ -12,13 +12,16 @@
 #include <vector>
 #include <set>
 
-QString smooth = "1";
+QString edge_fid = "1";
+QString edge_simpl = "3";
 QString edge_threshold = "15";
+QString seg_smooth = "1.5";
 QString n_colors = "32";
 QString kuwahara_rad = "5";
 int area_threshold = 0;
 int importance_threshold = 0xFFFFFF;
-QString resize;
+QString downscale;
+QString upscale;
 int pal_idx = 1;
 QMap<QRgb, int> palette;
 std::vector<bool> visited;
@@ -28,13 +31,17 @@ QString create_segmented(QString file)
   QString res = file + ".seg.png";
   QStringList params;
   params << file;
-  if (!resize.isNull()) params << "-resize" << resize;
-  QProcess::execute("gmic", params
+  if (!downscale.isNull()) params << "-resize" << downscale + "%," + downscale + "%";
+  params
     << "-kuwahara" << kuwahara_rad
-    << "-gimp_segment_watershed" << (edge_threshold + "," + smooth + ",0")
+    << "-gimp_segment_watershed" << (edge_threshold + "," + seg_smooth + ",1")
     << "-autoindex" << (n_colors + ",0,0")
-    << "-o" << res
-  );
+    << "-gimp_cutout" << (n_colors + "," + edge_simpl + "," + edge_fid + ",0");
+  if (!upscale.isNull()) params << "-resize" << upscale + "%," + upscale + "%";
+  params
+    << "-autoindex" << (n_colors + ",0,0")
+    << "-o" << res;
+  QProcess::execute("gmic", params);
   return res;
 }
 
@@ -298,7 +305,7 @@ int main(int argc, char ** argv)
 {
   QApplication app(argc, argv);
   int op = -1;
-  while (-1 != (op = getopt(argc, argv, "s:e:r:c:a:i:k:")))
+  while (-1 != (op = getopt(argc, argv, "s:f:c:a:i:k:t:m:d:u:")))
   {
      switch(op)
      {
@@ -308,20 +315,31 @@ int main(int argc, char ** argv)
      case 'i':
        importance_threshold = QString(optarg).toInt();
        break;
+     case 't':
+       edge_threshold = optarg;
+       break;
+     case 'm':
+       seg_smooth = optarg;
+       break;
+     case 'd':
+       downscale = optarg;
+       downscale = QString("%1").arg((int)(100/downscale.toDouble()));
+       break;
      case 's':
-       smooth = optarg;
+       edge_simpl = optarg;
        break;
      case 'k':
        kuwahara_rad = optarg;
        break;
-     case 'e':
-       edge_threshold = optarg;
+     case 'f':
+       edge_fid = optarg;
        break;
      case 'c':
        n_colors = optarg;
        break;
-     case 'r':
-       resize = optarg;
+     case 'u':
+       upscale = optarg;
+       upscale = QString("%1").arg((int)(100*upscale.toDouble()));
        break;
      }
   }
