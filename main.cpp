@@ -36,13 +36,13 @@ QString create_segmented(QString file)
   params
     << "-kuwahara" << kuwahara_rad
     << "-gimp_segment_watershed" << (edge_threshold + "," + seg_smooth + ",1")
-    << "-autoindex" << (n_colors + ",0,0")
+      //<< "-autoindex" << (n_colors + ",0,0")
       //<< "-gimp_cutout" << (n_colors + "," + edge_simpl + "," + edge_fid + ",0")
       ;
   if (!upscale.isNull()) params << "-resize" << upscale + "%," + upscale + "%";
   params << "-gimp_cutout" << (n_colors + "," + edge_simpl + "," + edge_fid + ",0");
   params
-    << "-autoindex" << (n_colors + ",0,0")
+      << "-autoindex" << (n_colors + ",0,0")
     << "-o" << res;
   QProcess::execute("gmic", params);
   return res;
@@ -306,7 +306,7 @@ QString remove_small_segments(QString file)
 
 QString create_palette(QString file)
 {
-  int n = n_colors.toInt();
+  int n = palette.size();
   int rows = (n + columns - 1) / columns;
   int rect_size = 40;
   QImage img(columns*rect_size, rows*rect_size, QImage::Format_RGB888);
