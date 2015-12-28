@@ -57,6 +57,12 @@ QString create_result(QString isophotes, QString labeled)
     << "-apply_curve" << "0,0,200,255,255"
     << "-o" << res + ".gray.png"
   );
+  QProcess::execute("gmic", QStringList() << isophotes << labeled + ".twice.png"
+    << "-resize[0]" << "200%,200%"
+    << "-dilate_circ[0]" << "2"
+    << "-blend" << "multiply,1"
+    << "-o" << res + ".twice.png"
+  );
   return res;
 }
 
@@ -172,20 +178,20 @@ int find_label_pos(QImage const & img, std::vector<int> const & comp)
   return p;
 }
 
-QRect get_text_rect(QImage const & img, int p)
+QRect get_text_rect(QImage const & img, int p, int scale)
 {
   int x = p % img.width();
   int y = p / img.width();
   QRgb c = color(img, p);
   int dist = c & 0xFF;
-  dist *= 2;
+  dist *= 2*scale;
   if (dist < 5) return QRect();
   double prop = 0.6;
   double sz = std::min(20, dist);
-  return QRect(x - sz/2, y - sz*prop/2, sz, sz*prop);
+  return QRect(x*scale - sz/2, y*scale - sz*prop/2, sz, sz*prop);
 }
 
-void mark(QImage const & img, QImage const & dimg, int p, QPainter & painter)
+void mark(QImage const & img, QImage const & dimg, int p, QPainter & painter, int scale)
 {
   QRgb c = color(img, p);
   QMap<QRgb, int>::const_iterator it = palette.find(c);
@@ -194,7 +200,7 @@ void mark(QImage const & img, QImage const & dimg, int p, QPainter & painter)
     palette[c] = pal_idx++;
   else
     m = *it;
-  QRect rect = get_text_rect(dimg, p);
+  QRect rect = get_text_rect(dimg, p, scale);
   if (!rect.isNull())
   {
     QRect b = painter.fontMetrics().boundingRect("69");
@@ -222,10 +228,13 @@ QString create_labels(QString segmented, QString distances)
     ss << "size mismatch " << h << "-" << h2 << " " << w << "-" << w2;
     throw std::runtime_error(ss.str());
   }
+  QImage mimg2(w*2, h*2, QImage::Format_RGB888);
   visited.assign(w*h, false);
-  QPainter painter;
+  QPainter painter, painter2;
   painter.begin(&mimg);
+  painter2.begin(&mimg2);
   painter.fillRect(0, 0, w, h, QColor::fromRgb(255, 255, 255));
+  painter2.fillRect(0, 0, w*2, h*2, QColor::fromRgb(255, 255, 255));
   int start = 0;
   while (start != -1)
   {
@@ -235,13 +244,15 @@ QString create_labels(QString segmented, QString distances)
     //std::cout << "searching label pos..." << std::endl;
     int p = find_label_pos(dimg, comp);
     //std::cout << "placing mark..." << std::endl;
-    mark(simg, dimg, p, painter);
+    mark(simg, dimg, p, painter, 1);
+    mark(simg, dimg, p, painter2, 2);
     //std::cout << "searching next comp..." << std::endl;
     start = find_start_idx(start);
   }
   painter.end();
   QString res = distances + ".num.png";
   mimg.save(res, "PNG");
+  mimg2.save(res + ".twice.png", "PNG");
   return res;
 }
 
