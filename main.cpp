@@ -20,6 +20,7 @@ QString n_colors = "32";
 QString kuwahara_rad = "5";
 int area_threshold = 0;
 int importance_threshold = 0xFFFFFF;
+int columns = 11;
 QString downscale;
 QString upscale;
 int pal_idx = 1;
@@ -36,8 +37,10 @@ QString create_segmented(QString file)
     << "-kuwahara" << kuwahara_rad
     << "-gimp_segment_watershed" << (edge_threshold + "," + seg_smooth + ",1")
     << "-autoindex" << (n_colors + ",0,0")
-    << "-gimp_cutout" << (n_colors + "," + edge_simpl + "," + edge_fid + ",0");
+      //<< "-gimp_cutout" << (n_colors + "," + edge_simpl + "," + edge_fid + ",0")
+      ;
   if (!upscale.isNull()) params << "-resize" << upscale + "%," + upscale + "%";
+  params << "-gimp_cutout" << (n_colors + "," + edge_simpl + "," + edge_fid + ",0");
   params
     << "-autoindex" << (n_colors + ",0,0")
     << "-o" << res;
@@ -301,11 +304,39 @@ QString remove_small_segments(QString file)
   return res;
 }
 
+QString create_palette(QString file)
+{
+  int n = n_colors.toInt();
+  int rows = (n + columns - 1) / columns;
+  int rect_size = 40;
+  QImage img(columns*rect_size, rows*rect_size, QImage::Format_RGB888);
+  QPainter painter;
+  painter.begin(&img);
+  painter.fillRect(0, 0, img.width(), img.height(), QColor(255, 255, 255));
+  QMap<int, QRgb> rpalette;
+  for(QMap<QRgb, int>::const_iterator it = palette.begin(); it != palette.end(); ++it)
+      rpalette.insert(it.value(), it.key());
+  for (int i = 0; i < n; ++i)
+  {
+    QColor c = QColor(rpalette[i+1]);
+    int x = (i % columns)*rect_size;
+    int y = (i / columns)*rect_size;
+    painter.setPen(c.lightness() < 128 ? QColor(255, 255, 255) : QColor(0, 0, 0));
+    painter.fillRect(x, y, rect_size, rect_size, c);
+    painter.drawText(x + 0.1*rect_size, y + 0.25*rect_size, 0.8*rect_size, 0.5*rect_size,
+                     Qt::AlignVCenter | Qt::AlignHCenter, QString("%1").arg(i+1));
+  }
+  painter.end();
+  QString res = file + ".pal.png";
+  img.save(res, "PNG");
+  return res;
+}
+
 int main(int argc, char ** argv)
 {
   QApplication app(argc, argv);
   int op = -1;
-  while (-1 != (op = getopt(argc, argv, "s:f:c:a:i:k:t:m:d:u:")))
+  while (-1 != (op = getopt(argc, argv, "s:f:c:a:i:k:t:m:d:u:l:")))
   {
      switch(op)
      {
@@ -320,6 +351,9 @@ int main(int argc, char ** argv)
        break;
      case 'm':
        seg_smooth = optarg;
+       break;
+     case 'l':
+       columns = QString(optarg).toInt();
        break;
      case 'd':
        downscale = optarg;
@@ -350,5 +384,6 @@ int main(int argc, char ** argv)
   QString distances = create_distance(isophotes);
   QString labeled = create_labels(segmented, distances);
   QString result = create_result(isophotes, labeled);
+  QString pal = create_palette(argv[optind]);
   return 0;
 }
