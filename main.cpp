@@ -52,9 +52,10 @@ QString create_result(QString isophotes, QString labeled)
 {
   QString res = labeled + ".res.png";
   QProcess::execute("gmic", QStringList() << isophotes << labeled
+    << "-apply_curve[0]" << "0,0,150,255,255"
     << "-blend" << "multiply,1"
     << "-o" << res
-    << "-apply_curve" << "0,0,200,255,255"
+    << "-apply_curve" << "0,0,150,255,255"
     << "-o" << res + ".gray.png"
   );
   QProcess::execute("gmic", QStringList() << isophotes << labeled + ".twice.png"
