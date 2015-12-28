@@ -36,7 +36,7 @@ QString create_segmented(QString file)
   params
     << "-kuwahara" << kuwahara_rad
     << "-gimp_segment_watershed" << (edge_threshold + "," + seg_smooth + ",1")
-      //<< "-autoindex" << (n_colors + ",0,0")
+    << "-autoindex" << (n_colors + ",0,0")
       //<< "-gimp_cutout" << (n_colors + "," + edge_simpl + "," + edge_fid + ",0")
       ;
   if (!upscale.isNull()) params << "-resize" << upscale + "%," + upscale + "%";
