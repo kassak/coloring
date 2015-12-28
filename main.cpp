@@ -170,10 +170,21 @@ int find_label_pos(QImage const & img, std::vector<int> const & comp)
   return p;
 }
 
-void mark(QImage const & img, int p, QPainter & painter)
+QRect get_text_rect(QImage const & img, int p)
 {
   int x = p % img.width();
   int y = p / img.width();
+  QRgb c = color(img, p);
+  int dist = c & 0xFF;
+  dist *= 2;
+  if (dist < 5) return QRect();
+  double prop = 0.6;
+  double sz = std::min(20, dist);
+  return QRect(x - sz/2, y - sz*prop/2, sz, sz*prop);
+}
+
+void mark(QImage const & img, QImage const & dimg, int p, QPainter & painter)
+{
   QRgb c = color(img, p);
   QMap<QRgb, int>::const_iterator it = palette.find(c);
   int m = pal_idx;
@@ -181,8 +192,17 @@ void mark(QImage const & img, int p, QPainter & painter)
     palette[c] = pal_idx++;
   else
     m = *it;
-  painter.drawText(x - 10, y - 5, 20, 10, Qt::AlignHCenter | Qt::AlignVCenter, QString("%1").arg(m));
-  //painter.drawRect(x -5,y - 5, 10, 10);
+  QRect rect = get_text_rect(dimg, p);
+  if (!rect.isNull())
+  {
+    QRect b = painter.fontMetrics().boundingRect("69");
+    QFont f = painter.font();
+    QFont old;
+    f.setPointSizeF(f.pointSizeF()*rect.height()/b.height());
+    painter.setFont(f);
+    painter.drawText(rect, Qt::AlignHCenter | Qt::AlignVCenter, QString("%1").arg(m));
+    painter.setFont(old);
+  }
 }
 
 QString create_labels(QString segmented, QString distances)
@@ -213,7 +233,7 @@ QString create_labels(QString segmented, QString distances)
     //std::cout << "searching label pos..." << std::endl;
     int p = find_label_pos(dimg, comp);
     //std::cout << "placing mark..." << std::endl;
-    mark(simg, p, painter);
+    mark(simg, dimg, p, painter);
     //std::cout << "searching next comp..." << std::endl;
     start = find_start_idx(start);
   }
