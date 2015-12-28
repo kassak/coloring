@@ -60,6 +60,7 @@ QString create_result(QString isophotes, QString labeled)
   QProcess::execute("gmic", QStringList() << isophotes << labeled + ".twice.png"
     << "-resize[0]" << "200%,200%"
     << "-dilate_circ[0]" << "2"
+    << "-apply_curve[0]" << "0,0,200,255,255"
     << "-blend" << "multiply,1"
     << "-o" << res + ".twice.png"
   );
@@ -213,21 +214,14 @@ void mark(QImage const & img, QImage const & dimg, int p, QPainter & painter, in
   }
 }
 
-QString create_labels(QString segmented, QString distances)
+QString create_labels(QString segmented, QString distances, QString isophotes)
 {
   QImage simg(segmented);
+  QImage iimg(isophotes);
   QImage dimg(distances);
   QImage mimg(simg.size(), QImage::Format_RGB888);
   int w = dimg.width();
   int h = dimg.height();
-  int w2 = simg.width();
-  int h2 = simg.height();
-  if (h2 != h || w2 != w)
-  {
-    std::stringstream ss;
-    ss << "size mismatch " << h << "-" << h2 << " " << w << "-" << w2;
-    throw std::runtime_error(ss.str());
-  }
   QImage mimg2(w*2, h*2, QImage::Format_RGB888);
   visited.assign(w*h, false);
   QPainter painter, painter2;
@@ -238,15 +232,13 @@ QString create_labels(QString segmented, QString distances)
   int start = 0;
   while (start != -1)
   {
-    //std::cout << "extracting comp..." << std::endl;
-    std::vector<int> comp = find_component(simg, start, NULL, NULL);
-    //std::cout << comp.size() << " pixels" << std::endl;
-    //std::cout << "searching label pos..." << std::endl;
-    int p = find_label_pos(dimg, comp);
-    //std::cout << "placing mark..." << std::endl;
-    mark(simg, dimg, p, painter, 1);
-    mark(simg, dimg, p, painter2, 2);
-    //std::cout << "searching next comp..." << std::endl;
+    if (color(iimg, start) != 0)
+    {
+      std::vector<int> comp = find_component(iimg, start, NULL, NULL);
+      int p = find_label_pos(dimg, comp);
+      mark(simg, dimg, p, painter, 1);
+      mark(simg, dimg, p, painter2, 2);
+    }
     start = find_start_idx(start);
   }
   painter.end();
@@ -415,7 +407,7 @@ int main(int argc, char ** argv)
   QString segmented = remove_small_segments(bad_segmented);
   QString isophotes = create_isophotes(segmented);
   QString distances = create_distance(isophotes);
-  QString labeled = create_labels(segmented, distances);
+  QString labeled = create_labels(segmented, distances, isophotes);
   QString result = create_result(isophotes, labeled);
   QString pal = create_palette(argv[optind]);
   return 0;
