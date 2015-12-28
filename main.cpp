@@ -189,7 +189,7 @@ QRect get_text_rect(QImage const & img, int p, int scale)
   dist *= 2*scale;
   if (dist < 5) return QRect();
   double prop = 0.6;
-  double sz = std::min(20, dist);
+  double sz = std::min(20, scale == 1 ? dist : 20);
   return QRect(x*scale - sz/2, y*scale - sz*prop/2, sz, sz*prop);
 }
 
