@@ -5,9 +5,9 @@ all: 01 02 03 04 05 06 07 08 09 10 11 12
 ./img/01.jpg:
 	wget -O ./img/01.jpg 'https://pp.vk.me/c628130/v628130504/19bfd/Z9bxLAJZVBI.jpg'
 02: ./img/02.jpg
-	./coloring -s1 -t 10 -d3 -u2.4 -c60 -a100 ./img/02.jpg
+	./coloring -s1 -t 10 -d1.5 -u2.5 -c100 -a100 ./img/02.jpg
 ./img/02.jpg:
-	wget -O ./img/02.jpg 'https://pp.vk.me/c628130/v628130504/193a4/EBB-O5Wzn48.jpg'
+	wget -O ./img/02.jpg 'https://pp.vk.me/c424527/v424527504/36e1/t8b85jgaw8M.jpg'
 03: ./img/03.jpg
 	./coloring -s0.01 -t 15 -d1 -u3 -c60 -a100 ./img/03.jpg
 ./img/03.jpg:
