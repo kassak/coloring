@@ -60,7 +60,7 @@ QString create_result(QString isophotes, QString labeled)
   );
   QProcess::execute("gmic", QStringList() << isophotes << labeled + ".twice.png"
     << "-resize[0]" << "200%,200%"
-    << "-dilate_circ[0]" << "2"
+//    << "-dilate_circ[0]" << "2"
     << "-apply_curve[0]" << "0,0,200,255,255"
     << "-blend" << "multiply,1"
     << "-o" << res + ".twice.png"
